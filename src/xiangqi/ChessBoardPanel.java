@@ -494,42 +494,44 @@ public class ChessBoardPanel extends JPanel {
         int py = cy - radius;
 
         // 1. 棋子立體陰影
-        g2.setColor(new Color(0, 0, 0, 50));
+        g2.setColor(new Color(0, 0, 0, 45));
         g2.fill(new Ellipse2D.Float(px + 2, py + 3, diameter, diameter));
 
         // 2. 棋子象牙白木質球體立體漸層
         GradientPaint tokenGradient = new GradientPaint(
-            px + radius * 0.4f, py + radius * 0.4f, new Color(255, 250, 242),
-            px + diameter, py + diameter, new Color(228, 206, 175)
+            px + radius * 0.35f, py + radius * 0.35f, new Color(255, 252, 245),
+            px + diameter, py + diameter, new Color(225, 202, 170)
         );
         g2.setPaint(tokenGradient);
         g2.fill(new Ellipse2D.Float(px, py, diameter, diameter));
 
-        // 3. 棋子邊緣環形線條
+        // 3. 棋子邊緣環形線條（與圓心完全同心）
         boolean isRed = piece.isRed();
-        Color themeColor = isRed ? new Color(198, 24, 24) : new Color(22, 22, 22);
-        Color rimColor = isRed ? new Color(185, 45, 45, 180) : new Color(75, 75, 75, 180);
+        Color themeColor = isRed ? new Color(205, 20, 20) : new Color(18, 18, 18);
+        Color rimColor = isRed ? new Color(195, 40, 40, 180) : new Color(70, 70, 70, 180);
 
         g2.setColor(rimColor);
         g2.setStroke(new BasicStroke(1.6f));
-        g2.draw(new Ellipse2D.Float(px + 1, py + 1, diameter - 2, diameter - 2));
+        g2.draw(new Ellipse2D.Float(px, py, diameter, diameter));
 
-        // 內環細圈
+        // 內環細圈（嚴格同心）
         int innerGap = Math.max(3, radius / 7);
-        g2.draw(new Ellipse2D.Float(px + innerGap, py + innerGap, diameter - 2 * innerGap, diameter - 2 * innerGap));
+        int innerR = radius - innerGap;
+        g2.draw(new Ellipse2D.Float(cx - innerR, cy - innerR, 2 * innerR, 2 * innerR));
 
-        // 4. 書法楷體棋子文字 —— 使用 GlyphVector 幾何視覺邊框達成「絕對水平與垂直致中」
+        // 4. 書法楷體棋子文字 —— 水平與垂直幾何正中央對齊
         g2.setColor(themeColor);
         String text = piece.getCharacter();
 
-        FontRenderContext frc = g2.getFontRenderContext();
-        GlyphVector gv = currentPieceFont.createGlyphVector(frc, text);
-        Rectangle2D visualBounds = gv.getVisualBounds();
+        g2.setFont(currentPieceFont);
+        FontMetrics fm = g2.getFontMetrics(currentPieceFont);
 
-        // 消除字型基準線 (baseline) 偏差，精確將墨跡中心對齊圓心 (cx, cy)
-        float textX = (float) (cx - visualBounds.getWidth() / 2.0 - visualBounds.getX());
-        float textY = (float) (cy - visualBounds.getHeight() / 2.0 - visualBounds.getY());
-        g2.drawGlyphVector(gv, textX, textY);
+        // 水平致中：由文字寬度與圓心精確對齊
+        int textX = cx - fm.stringWidth(text) / 2;
+        // 垂直致中：標準標楷體字形基線垂直調整，確保字體墨跡重心完美坐落在正中央
+        int textY = cy + (fm.getAscent() - fm.getDescent()) / 2 + 1;
+
+        g2.drawString(text, textX, textY);
     }
 
     private void drawSelectionAndLegalMoves(Graphics2D g2, int cellSize, int offsetX, int offsetY) {

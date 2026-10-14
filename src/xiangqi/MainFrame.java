@@ -8,6 +8,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.geom.RoundRectangle2D;
 import java.util.List;
 
 /**
@@ -105,18 +106,18 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
 
     private JPanel createTopToolBar() {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
-        bar.setBackground(new Color(60, 42, 28));
-        bar.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(120, 80, 45)));
+        bar.setBackground(new Color(33, 37, 41)); // 現代深炭黑底色，讓彩色按鈕極其醒目
+        bar.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(212, 175, 55))); // 典雅金色底邊線
 
         // 1. 棋盤樣式選擇
         JLabel themeLbl = new JLabel("樣式：");
-        themeLbl.setForeground(Color.WHITE);
+        themeLbl.setForeground(new Color(255, 235, 190));
         themeLbl.setFont(new Font("Microsoft YaHei", Font.BOLD, 13));
         bar.add(themeLbl);
 
         themeCombo = new JComboBox<>(BoardTheme.values());
         themeCombo.setSelectedItem(BoardTheme.WOOD);
-        themeCombo.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        themeCombo.setFont(new Font("Microsoft YaHei", Font.BOLD, 12));
         themeCombo.setToolTipText("切換棋盤材質風格（經典木紋、大理石、簡約純色、翡翠玉石等）");
         themeCombo.addActionListener(e -> {
             BoardTheme theme = (BoardTheme) themeCombo.getSelectedItem();
@@ -133,49 +134,57 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
 
         // 2. 難易度選擇
         JLabel diffLbl = new JLabel("難度：");
-        diffLbl.setForeground(Color.WHITE);
+        diffLbl.setForeground(new Color(255, 235, 190));
         diffLbl.setFont(new Font("Microsoft YaHei", Font.BOLD, 13));
         bar.add(diffLbl);
 
         difficultyCombo = new JComboBox<>(AIPlayer.Difficulty.values());
         difficultyCombo.setSelectedItem(AIPlayer.Difficulty.MEDIUM);
-        difficultyCombo.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        difficultyCombo.setFont(new Font("Microsoft YaHei", Font.BOLD, 12));
         difficultyCombo.setToolTipText("選擇電腦 AI 的棋力水準");
         bar.add(difficultyCombo);
 
         // 3. 執子選擇
         JLabel sideLbl = new JLabel("執子：");
-        sideLbl.setForeground(Color.WHITE);
+        sideLbl.setForeground(new Color(255, 235, 190));
         sideLbl.setFont(new Font("Microsoft YaHei", Font.BOLD, 13));
         bar.add(sideLbl);
 
         sideCombo = new JComboBox<>(new String[]{"執紅 (先手)", "執黑 (後手)"});
-        sideCombo.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        sideCombo.setFont(new Font("Microsoft YaHei", Font.BOLD, 12));
         sideCombo.setToolTipText("紅方先走，黑方後走");
         bar.add(sideCombo);
 
-        // 4. 按鈕組
-        newGameBtn = createStyledButton("開始新局", new Color(46, 139, 87), Color.WHITE);
+        bar.add(Box.createHorizontalStrut(6));
+
+        // 4. 按鈕組（高對比、鮮明亮眼彩色按鈕）
+        // 翠綠色：開始新局
+        newGameBtn = createStyledButton("開始新局", new Color(39, 174, 96), new Color(46, 204, 113), Color.WHITE);
         newGameBtn.setToolTipText("依據所選難度與執子方重新開始對局");
         newGameBtn.addActionListener(e -> onNewGameClicked());
         bar.add(newGameBtn);
 
-        undoBtn = createStyledButton("悔棋 (3/3)", new Color(180, 100, 30), Color.WHITE);
+        // 亮橙色：悔棋
+        undoBtn = createStyledButton("悔棋 (3/3)", new Color(230, 126, 34), new Color(243, 156, 18), Color.WHITE);
         undoBtn.setToolTipText("撤銷上一輪走子（每局上限 3 次）");
         undoBtn.addActionListener(e -> controller.undo());
         bar.add(undoBtn);
 
-        hintBtn = createStyledButton("提示", new Color(70, 130, 180), Color.WHITE);
+        // 湛藍色：提示
+        hintBtn = createStyledButton("提示", new Color(41, 128, 185), new Color(52, 152, 219), Color.WHITE);
         hintBtn.setToolTipText("請 AI 協助分析並給出一步推薦走法");
         hintBtn.addActionListener(e -> onHintClicked());
         bar.add(hintBtn);
 
-        resignBtn = createStyledButton("認輸", new Color(178, 34, 34), Color.WHITE);
+        // 猩紅色：認輸
+        resignBtn = createStyledButton("認輸", new Color(214, 48, 49), new Color(235, 77, 75), Color.WHITE);
         resignBtn.setToolTipText("向電腦投降認輸");
         resignBtn.addActionListener(e -> onResignClicked());
         bar.add(resignBtn);
 
-        JButton ruleBtn = createStyledButton("說明", new Color(105, 105, 105), Color.WHITE);
+        // 紫羅蘭色：說明
+        JButton ruleBtn = createStyledButton("規則說明", new Color(142, 68, 173), new Color(165, 94, 234), Color.WHITE);
+        ruleBtn.setToolTipText("查看棋規與特殊功能說明");
         ruleBtn.addActionListener(e -> showRuleHelpDialog());
         bar.add(ruleBtn);
 
@@ -296,17 +305,46 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
         return bar;
     }
 
-    private JButton createStyledButton(String text, Color bg, Color fg) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font("Microsoft YaHei", Font.BOLD, 12));
-        btn.setBackground(bg);
-        btn.setForeground(fg);
+    private JButton createStyledButton(String text, Color normalBg, Color hoverBg, Color fg) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                Color currentBg;
+                if (!isEnabled()) {
+                    currentBg = new Color(105, 110, 115);
+                } else if (getModel().isPressed()) {
+                    currentBg = normalBg.darker();
+                } else if (getModel().isRollover()) {
+                    currentBg = hoverBg;
+                } else {
+                    currentBg = normalBg;
+                }
+
+                // 填滿圓角按鈕底色
+                g2.setColor(currentBg);
+                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 10, 10));
+
+                // 醒目的頂部細微高光邊線
+                g2.setColor(new Color(255, 255, 255, 75));
+                g2.setStroke(new BasicStroke(1.2f));
+                g2.draw(new RoundRectangle2D.Float(1, 1, getWidth() - 2, getHeight() - 2, 8, 8));
+
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+
+        btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setOpaque(false);
+        btn.setFont(new Font("Microsoft YaHei", Font.BOLD, 13));
+        btn.setForeground(fg);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setBorder(BorderFactory.createCompoundBorder(
-            new LineBorder(bg.darker(), 1, true),
-            new EmptyBorder(5, 10, 5, 10)
-        ));
+        btn.setBorder(new EmptyBorder(6, 14, 6, 14));
         return btn;
     }
 
