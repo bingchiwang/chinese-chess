@@ -12,6 +12,7 @@ import java.util.List;
 
 /**
  * 象棋遊戲主視窗介面
+ * 支援更換棋盤樣式（木紋、大理石、純色等）、3 次悔棋限制與書法字體致中展示
  */
 public class MainFrame extends JFrame implements GameController.GameListener, ChessBoardPanel.MoveListener {
 
@@ -21,15 +22,19 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
     // 介面元件
     private JComboBox<AIPlayer.Difficulty> difficultyCombo;
     private JComboBox<String> sideCombo;
+    private JComboBox<BoardTheme> themeCombo;
     private JButton newGameBtn;
     private JButton undoBtn;
     private JButton hintBtn;
     private JButton resignBtn;
 
+    private JPanel centerWrapper;
+
     private JLabel turnStatusLabel;
     private JLabel checkStatusLabel;
     private JLabel difficultyInfoLabel;
     private JLabel moveCountLabel;
+    private JLabel undoCountLabel;
 
     private JPanel capturedRedPanel;
     private JPanel capturedBlackPanel;
@@ -80,9 +85,9 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
         // 頂部控制列
         add(createTopToolBar(), BorderLayout.NORTH);
 
-        // 中間棋盤
-        JPanel centerWrapper = new JPanel(new GridBagLayout());
-        centerWrapper.setBackground(new Color(240, 232, 218));
+        // 中間棋盤容器
+        centerWrapper = new JPanel(new GridBagLayout());
+        centerWrapper.setBackground(boardPanel.getTheme().wrapperBg);
         centerWrapper.setBorder(new EmptyBorder(10, 10, 10, 10));
         centerWrapper.add(boardPanel);
         add(centerWrapper, BorderLayout.CENTER);
@@ -94,43 +99,69 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
         add(createBottomStatusBar(), BorderLayout.SOUTH);
 
         pack();
-        setMinimumSize(new Dimension(920, 720));
+        setMinimumSize(new Dimension(960, 730));
         setLocationRelativeTo(null);
     }
 
     private JPanel createTopToolBar() {
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 10));
+        JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
         bar.setBackground(new Color(60, 42, 28));
         bar.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(120, 80, 45)));
 
-        JLabel diffLbl = new JLabel("難易度：");
+        // 1. 棋盤樣式選擇
+        JLabel themeLbl = new JLabel("樣式：");
+        themeLbl.setForeground(Color.WHITE);
+        themeLbl.setFont(new Font("Microsoft YaHei", Font.BOLD, 13));
+        bar.add(themeLbl);
+
+        themeCombo = new JComboBox<>(BoardTheme.values());
+        themeCombo.setSelectedItem(BoardTheme.WOOD);
+        themeCombo.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        themeCombo.setToolTipText("切換棋盤材質風格（經典木紋、大理石、簡約純色、翡翠玉石等）");
+        themeCombo.addActionListener(e -> {
+            BoardTheme theme = (BoardTheme) themeCombo.getSelectedItem();
+            if (theme != null) {
+                boardPanel.setTheme(theme);
+                if (centerWrapper != null) {
+                    centerWrapper.setBackground(theme.wrapperBg);
+                    centerWrapper.repaint();
+                }
+                bottomStatusLabel.setText("已切換棋盤樣式為：" + theme.getDisplayName());
+            }
+        });
+        bar.add(themeCombo);
+
+        // 2. 難易度選擇
+        JLabel diffLbl = new JLabel("難度：");
         diffLbl.setForeground(Color.WHITE);
-        diffLbl.setFont(new Font("Microsoft YaHei", Font.BOLD, 14));
+        diffLbl.setFont(new Font("Microsoft YaHei", Font.BOLD, 13));
         bar.add(diffLbl);
 
         difficultyCombo = new JComboBox<>(AIPlayer.Difficulty.values());
         difficultyCombo.setSelectedItem(AIPlayer.Difficulty.MEDIUM);
-        difficultyCombo.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
+        difficultyCombo.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         difficultyCombo.setToolTipText("選擇電腦 AI 的棋力水準");
         bar.add(difficultyCombo);
 
-        JLabel sideLbl = new JLabel("玩家執子：");
+        // 3. 執子選擇
+        JLabel sideLbl = new JLabel("執子：");
         sideLbl.setForeground(Color.WHITE);
-        sideLbl.setFont(new Font("Microsoft YaHei", Font.BOLD, 14));
+        sideLbl.setFont(new Font("Microsoft YaHei", Font.BOLD, 13));
         bar.add(sideLbl);
 
-        sideCombo = new JComboBox<>(new String[]{"玩家執紅 (先手)", "玩家執黑 (後手)"});
-        sideCombo.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
+        sideCombo = new JComboBox<>(new String[]{"執紅 (先手)", "執黑 (後手)"});
+        sideCombo.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         sideCombo.setToolTipText("紅方先走，黑方後走");
         bar.add(sideCombo);
 
+        // 4. 按鈕組
         newGameBtn = createStyledButton("開始新局", new Color(46, 139, 87), Color.WHITE);
         newGameBtn.setToolTipText("依據所選難度與執子方重新開始對局");
         newGameBtn.addActionListener(e -> onNewGameClicked());
         bar.add(newGameBtn);
 
-        undoBtn = createStyledButton("悔棋", new Color(180, 100, 30), Color.WHITE);
-        undoBtn.setToolTipText("撤銷上一輪走子");
+        undoBtn = createStyledButton("悔棋 (3/3)", new Color(180, 100, 30), Color.WHITE);
+        undoBtn.setToolTipText("撤銷上一輪走子（每局上限 3 次）");
         undoBtn.addActionListener(e -> controller.undo());
         bar.add(undoBtn);
 
@@ -144,7 +175,7 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
         resignBtn.addActionListener(e -> onResignClicked());
         bar.add(resignBtn);
 
-        JButton ruleBtn = createStyledButton("棋規說明", new Color(105, 105, 105), Color.WHITE);
+        JButton ruleBtn = createStyledButton("說明", new Color(105, 105, 105), Color.WHITE);
         ruleBtn.addActionListener(e -> showRuleHelpDialog());
         bar.add(ruleBtn);
 
@@ -159,11 +190,11 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
         rightPanel.setBorder(new EmptyBorder(12, 10, 12, 14));
 
         // 1. 回合狀態卡片
-        JPanel statusCard = new JPanel(new GridLayout(4, 1, 4, 4));
+        JPanel statusCard = new JPanel(new GridLayout(5, 1, 3, 3));
         statusCard.setBackground(Color.WHITE);
         statusCard.setBorder(BorderFactory.createCompoundBorder(
             new LineBorder(new Color(210, 195, 175), 1, true),
-            new EmptyBorder(10, 12, 10, 12)
+            new EmptyBorder(8, 12, 8, 12)
         ));
 
         turnStatusLabel = new JLabel("輪到：紅方走棋", JLabel.CENTER);
@@ -172,7 +203,7 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
         statusCard.add(turnStatusLabel);
 
         checkStatusLabel = new JLabel("", JLabel.CENTER);
-        checkStatusLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 15));
+        checkStatusLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 14));
         checkStatusLabel.setForeground(new Color(220, 20, 20));
         statusCard.add(checkStatusLabel);
 
@@ -180,6 +211,11 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
         difficultyInfoLabel.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         difficultyInfoLabel.setForeground(new Color(80, 80, 80));
         statusCard.add(difficultyInfoLabel);
+
+        undoCountLabel = new JLabel("悔棋機會：剩餘 3 次 (每局限 3 次)", JLabel.CENTER);
+        undoCountLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 12));
+        undoCountLabel.setForeground(new Color(180, 100, 30));
+        statusCard.add(undoCountLabel);
 
         moveCountLabel = new JLabel("已走步數：0 步", JLabel.CENTER);
         moveCountLabel.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
@@ -262,14 +298,14 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
 
     private JButton createStyledButton(String text, Color bg, Color fg) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Microsoft YaHei", Font.BOLD, 13));
+        btn.setFont(new Font("Microsoft YaHei", Font.BOLD, 12));
         btn.setBackground(bg);
         btn.setForeground(fg);
         btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setBorder(BorderFactory.createCompoundBorder(
             new LineBorder(bg.darker(), 1, true),
-            new EmptyBorder(6, 12, 6, 12)
+            new EmptyBorder(5, 10, 5, 10)
         ));
         return btn;
     }
@@ -299,6 +335,7 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
 
         controller.startNewGame(diff, playerColor);
         difficultyInfoLabel.setText("當前難度：" + diff.getDisplayName());
+        updateUndoUI();
     }
 
     private void onHintClicked() {
@@ -333,8 +370,41 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
         }
     }
 
+    private void updateUndoUI() {
+        int rem = controller.getRemainingUndos();
+        undoBtn.setText("悔棋 (" + rem + "/3)");
+        undoBtn.setEnabled(rem > 0 && !controller.isAiThinking() && !controller.isGameOver());
+        if (rem > 0) {
+            undoCountLabel.setText("悔棋機會：剩餘 " + rem + " 次");
+            undoCountLabel.setForeground(new Color(180, 100, 30));
+        } else {
+            undoCountLabel.setText("悔棋機會：已用盡 (0/3)");
+            undoCountLabel.setForeground(new Color(160, 40, 40));
+        }
+    }
+
+    private void rebuildHistoryTable() {
+        historyTableModel.setRowCount(0);
+        List<Move> history = controller.getMoveHistory();
+        for (int i = 0; i < history.size(); i++) {
+            Move m = history.get(i);
+            int round = (i / 2) + 1;
+            boolean isRed = m.movedPiece.getColor() == PieceColor.RED;
+            if (isRed) {
+                historyTableModel.addRow(new Object[]{round, m.getNotation(), ""});
+            } else {
+                if (historyTableModel.getRowCount() == 0) {
+                    historyTableModel.addRow(new Object[]{1, "", m.getNotation()});
+                } else {
+                    int lastRow = historyTableModel.getRowCount() - 1;
+                    historyTableModel.setValueAt(m.getNotation(), lastRow, 2);
+                }
+            }
+        }
+    }
+
     private void showRuleHelpDialog() {
-        String rules = "<html><body style='width: 380px; font-family: Microsoft YaHei; font-size: 11pt; padding: 6px;'>"
+        String rules = "<html><body style='width: 390px; font-family: Microsoft YaHei; font-size: 11pt; padding: 6px;'>"
             + "<h2 style='color: #8B0000; text-align: center; margin-bottom: 6px;'>中國象棋 走法與規則</h2>"
             + "<p><b>【將/帥】</b>：九宮內直橫走一格；雙方將帥不可同列照面（飛將對面笑）。</p>"
             + "<p><b>【士/仕】</b>：九宮內沿斜線走一格。</p>"
@@ -344,13 +414,13 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
             + "<p><b>【炮/砲】</b>：直線移動無阻擋；吃子時必須隔一個任意棋子（炮架）。</p>"
             + "<p><b>【兵/卒】</b>：過河前只能向前一步；過河後可向前或左右橫走一步，不可後退。</p>"
             + "<hr>"
-            + "<p><b>難易度說明：</b><br>"
-            + "• <b>簡單</b>：深度 1~2，思考極快，偶有失誤，適合新手學習。<br>"
-            + "• <b>中等</b>：深度 3 Alpha-Beta 剪枝，攻守平衡。<br>"
-            + "• <b>困難</b>：深度 4 + 靜態搜索，算力強大，具備高級殺著。"
+            + "<p><b>特殊功能與機制：</b><br>"
+            + "• <b>悔棋次數限制</b>：每局提供 <b>3 次悔棋機會</b>，用盡後將無法再悔棋。<br>"
+            + "• <b>棋盤樣式切換</b>：提供經典木紋、典雅大理石、簡約純色、翡翠玉石、復古羊皮等多款主題。<br>"
+            + "• <b>書法棋子</b>：採用傳統書法標楷體，文字經幾何輪廓絕對水平與垂直致中。"
             + "</p></body></html>";
 
-        JOptionPane.showMessageDialog(this, rules, "象棋棋規與難度說明", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(this, rules, "象棋棋規與特色說明", JOptionPane.INFORMATION_MESSAGE);
     }
 
     // ========== ChessBoardPanel.MoveListener 實作 ==========
@@ -378,8 +448,9 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
             }
         }
 
-        // 更新步數
+        // 更新步數與悔棋狀態
         moveCountLabel.setText("已走步數：" + controller.getMoveHistory().size() + " 步");
+        updateUndoUI();
 
         // 若無將軍，清空將軍文字
         if (!controller.getBoard().isCheck(turn)) {
@@ -416,6 +487,7 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
 
         // 更新吃子展示
         updateCapturedPiecesUI();
+        updateUndoUI();
 
         bottomStatusLabel.setText((move.movedPiece.getColor() == PieceColor.RED ? "紅方：" : "黑方：") + notation);
     }
@@ -460,6 +532,7 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
         turnStatusLabel.setForeground(new Color(100, 100, 100));
         checkStatusLabel.setText(winner == controller.getPlayerColor() ? "🎉 玩家獲勝！" : "電腦獲勝");
         bottomStatusLabel.setText(message);
+        updateUndoUI();
 
         SwingUtilities.invokeLater(() -> {
             int res = JOptionPane.showOptionDialog(
@@ -486,7 +559,9 @@ public class MainFrame extends JFrame implements GameController.GameListener, Ch
         } else {
             boardPanel.setLastMove(null);
         }
+        rebuildHistoryTable();
         updateCapturedPiecesUI();
+        updateUndoUI();
     }
 
     @Override

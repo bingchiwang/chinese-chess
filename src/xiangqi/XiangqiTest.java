@@ -19,6 +19,7 @@ public class XiangqiTest {
         testCheckDetection();
         testNotation();
         testAISearch();
+        testUndoLimit();
 
         System.out.println("=== 所有規則與演算法測試全部通過！ ===");
     }
@@ -190,5 +191,36 @@ public class XiangqiTest {
         AIPlayer hardAI = new AIPlayer(AIPlayer.Difficulty.HARD);
         Move hardMove = hardAI.findBestMove(board);
         assertTrue(hardMove != null, "困難難度 AI 順利走子: " + hardMove);
+    }
+
+    private static void testUndoLimit() {
+        System.out.println("\n--- 測試 10: 悔棋 3 次上限機制測試 ---");
+        GameController gc = new GameController();
+        gc.startNewGame(AIPlayer.Difficulty.EASY, PieceColor.RED);
+        assertTrue(gc.getRemainingUndos() == 3, "開局悔棋次數初始為 3 次");
+
+        // 模擬走子與悔棋
+        Board b = gc.getBoard();
+        Move m1 = new Move(1, 7, 4, 7, b.getPiece(1, 7), null);
+        gc.handlePlayerMove(m1);
+
+        // 第 1 次悔棋
+        boolean u1 = gc.undo();
+        assertTrue(u1 && gc.getRemainingUndos() == 2, "第 1 次悔棋成功，剩餘 2 次");
+
+        // 走子並第 2 次悔棋
+        gc.handlePlayerMove(m1);
+        boolean u2 = gc.undo();
+        assertTrue(u2 && gc.getRemainingUndos() == 1, "第 2 次悔棋成功，剩餘 1 次");
+
+        // 走子並第 3 次悔棋
+        gc.handlePlayerMove(m1);
+        boolean u3 = gc.undo();
+        assertTrue(u3 && gc.getRemainingUndos() == 0, "第 3 次悔棋成功，剩餘 0 次");
+
+        // 走子並嘗試第 4 次悔棋（應被拒絕）
+        gc.handlePlayerMove(m1);
+        boolean u4 = gc.undo();
+        assertTrue(!u4 && gc.getRemainingUndos() == 0, "次數耗盡後第 4 次悔棋被嚴格拒絕");
     }
 }

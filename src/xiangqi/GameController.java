@@ -24,6 +24,9 @@ public class GameController {
     private PieceColor playerColor = PieceColor.RED;
     private AIPlayer.Difficulty difficulty = AIPlayer.Difficulty.MEDIUM;
 
+    public static final int MAX_UNDOS = 3;
+    private int remainingUndos = MAX_UNDOS;
+
     private final List<Move> moveHistory = new ArrayList<>();
     private final List<Piece> redCaptured = new ArrayList<>();
     private final List<Piece> blackCaptured = new ArrayList<>();
@@ -74,6 +77,10 @@ public class GameController {
         return blackCaptured;
     }
 
+    public int getRemainingUndos() {
+        return remainingUndos;
+    }
+
     /**
      * 開啟全新一局
      */
@@ -89,10 +96,11 @@ public class GameController {
         this.blackCaptured.clear();
         this.isGameOver = false;
         this.isAiThinking = false;
+        this.remainingUndos = MAX_UNDOS;
 
         if (listener != null) {
             listener.onBoardUpdated();
-            listener.onStatusMessage("新對局開始！難度：" + diff.getDisplayName() + "，玩家執" + playerColor.getFullName());
+            listener.onStatusMessage("新對局開始！難度：" + diff.getDisplayName() + "，玩家執" + playerColor.getFullName() + "（悔棋上限 3 次）");
             listener.onTurnChanged(board.getCurrentTurn(), false);
         }
 
@@ -117,11 +125,11 @@ public class GameController {
     }
 
     /**
-     * 悔棋（在人機對弈中，通常撤銷電腦的上一步與玩家的上一步）
+     * 悔棋（每局限 3 次，撤銷電腦的上一步與玩家的上一步；若電腦正在思考則立即取消思考並撤銷玩家該步）
      */
     public boolean undo() {
-        if (isAiThinking) {
-            if (listener != null) listener.onStatusMessage("電腦正在思考，暫時無法悔棋！");
+        if (remainingUndos <= 0) {
+            if (listener != null) listener.onStatusMessage("本局悔棋次數已用盡（每局限 3 次）！");
             return false;
         }
         if (moveHistory.isEmpty()) {
@@ -129,9 +137,17 @@ public class GameController {
             return false;
         }
 
-        // 輪到玩家時悔棋：需要撤銷兩步（電腦的一步 + 玩家的一步）
-        // 輪到電腦時（若有此狀態）：只需撤銷一步
-        int stepsToUndo = (board.getCurrentTurn() == playerColor) ? 2 : 1;
+        // 若電腦正在思考中，先中斷 AI 計算，只須撤銷玩家的一步
+        int stepsToUndo;
+        if (isAiThinking) {
+            cancelAiThinking();
+            stepsToUndo = 1;
+        } else {
+            // 輪到玩家時悔棋：需要撤銷兩步（電腦的一步 + 玩家的一步）
+            // 輪到電腦時（若有此狀態）：只需撤銷一步
+            stepsToUndo = (board.getCurrentTurn() == playerColor) ? 2 : 1;
+        }
+
         if (moveHistory.size() < stepsToUndo) {
             stepsToUndo = moveHistory.size();
         }
@@ -149,11 +165,12 @@ public class GameController {
             }
         }
 
+        remainingUndos--;
         isGameOver = false;
 
         if (listener != null) {
             listener.onBoardUpdated();
-            listener.onStatusMessage("已成功悔棋 " + stepsToUndo + " 步。");
+            listener.onStatusMessage("已成功悔棋！本局剩餘悔棋次數：" + remainingUndos + " 次。");
             listener.onTurnChanged(board.getCurrentTurn(), false);
         }
         return true;

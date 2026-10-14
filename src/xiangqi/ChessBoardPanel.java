@@ -4,13 +4,19 @@ import javax.swing.JPanel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.font.FontRenderContext;
+import java.awt.font.GlyphVector;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.GeneralPath;
+import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * 棋盤繪製與滑鼠互動元件
+ * 支援多種棋盤樣式（木紋、大理石、純色、翡翠、復古羊皮）
+ * 棋子文字精確致中，採用傳統書法楷體
  */
 public class ChessBoardPanel extends JPanel {
 
@@ -20,6 +26,7 @@ public class ChessBoardPanel extends JPanel {
 
     private Board board;
     private MoveListener moveListener;
+    private BoardTheme theme = BoardTheme.WOOD; // 當前棋盤樣式
     private boolean isFlipped = false; // 是否翻轉視角（黑方視角）
     private boolean isInteractive = true; // 是否允許玩家滑鼠操作
 
@@ -52,7 +59,8 @@ public class ChessBoardPanel extends JPanel {
     }
 
     private void initFonts() {
-        String[] fontNames = {"DFKai-SB", "Microsoft YaHei", "SimSun", "Serif"};
+        // 嚴格優先採用 Windows 標準傳統書法標楷體 (DFKai-SB) 或 楷體 (KaiTi)
+        String[] fontNames = {"DFKai-SB", "標楷體", "KaiTi", "楷體", "SimSun", "Microsoft YaHei", "Serif"};
         String chosenFont = "Serif";
         GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
         String[] available = ge.getAvailableFontFamilyNames();
@@ -70,6 +78,15 @@ public class ChessBoardPanel extends JPanel {
         pieceFont = new Font(chosenFont, Font.BOLD, 26);
         riverFont = new Font(chosenFont, Font.BOLD, 22);
         labelFont = new Font(chosenFont, Font.PLAIN, 13);
+    }
+
+    public void setTheme(BoardTheme theme) {
+        this.theme = (theme != null) ? theme : BoardTheme.WOOD;
+        repaint();
+    }
+
+    public BoardTheme getTheme() {
+        return theme;
     }
 
     public void setBoard(Board board) {
@@ -212,7 +229,7 @@ public class ChessBoardPanel extends JPanel {
         int offsetX = getOffsetX(cellSize);
         int offsetY = getOffsetY(cellSize);
 
-        // 1. 繪製仿木紋棋盤背景
+        // 1. 依據所選樣式繪製棋盤背景
         drawBoardBackground(g2, cellSize, offsetX, offsetY);
 
         // 2. 繪製棋盤線條（九宮、楚河漢界、十字標記）
@@ -227,7 +244,7 @@ public class ChessBoardPanel extends JPanel {
         // 5. 繪製將軍警示光圈
         drawCheckAlert(g2, cellSize, offsetX, offsetY);
 
-        // 6. 繪製棋子
+        // 6. 繪製棋子（使用傳統書法標楷體，絕對幾何致中）
         drawPieces(g2, cellSize, offsetX, offsetY);
 
         // 7. 繪製選中標記與可走目標點
@@ -242,28 +259,66 @@ public class ChessBoardPanel extends JPanel {
         int w = 8 * cellSize + 56;
         int h = 9 * cellSize + 56;
 
-        // 漸層實木底板
-        GradientPaint woodPaint = new GradientPaint(
-            x0, y0, new Color(238, 206, 155),
-            x0 + w, y0 + h, new Color(208, 168, 114)
+        RoundRectangle2D.Float boardShape = new RoundRectangle2D.Float(x0, y0, w, h, 18, 18);
+
+        // 依據主題填充底色漸層
+        GradientPaint bgPaint = new GradientPaint(
+            x0, y0, theme.bgGradStart,
+            x0 + w, y0 + h, theme.bgGradEnd
         );
-        g2.setPaint(woodPaint);
-        g2.fill(new RoundRectangle2D.Float(x0, y0, w, h, 18, 18));
+        g2.setPaint(bgPaint);
+        g2.fill(boardShape);
 
-        // 外框木邊陰影與金色邊條
-        g2.setColor(new Color(102, 60, 24));
-        g2.setStroke(new BasicStroke(3.5f));
-        g2.draw(new RoundRectangle2D.Float(x0, y0, w, h, 18, 18));
+        // 繪製材質紋理特徵
+        Shape clipOrig = g2.getClip();
+        g2.clip(boardShape);
 
-        // 內框裝飾線
-        g2.setColor(new Color(140, 85, 35, 180));
-        g2.setStroke(new BasicStroke(1.2f));
+        if (theme == BoardTheme.WOOD) {
+            // 經典木紋：柔和的細微年輪纖維木紋
+            g2.setColor(new Color(185, 135, 80, 25));
+            g2.setStroke(new BasicStroke(1.2f));
+            for (int gy = y0; gy < y0 + h; gy += 14) {
+                g2.drawLine(x0, gy, x0 + w, gy + 3);
+            }
+        } else if (theme == BoardTheme.MARBLE) {
+            // 典雅大理石：天然石質雲紋紋理
+            g2.setColor(new Color(189, 195, 199, 45));
+            g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            GeneralPath marbleVein = new GeneralPath();
+            marbleVein.moveTo(x0, y0 + h * 0.25f);
+            marbleVein.curveTo(x0 + w * 0.35f, y0 + h * 0.15f, x0 + w * 0.65f, y0 + h * 0.45f, x0 + w, y0 + h * 0.35f);
+            g2.draw(marbleVein);
+
+            marbleVein.reset();
+            marbleVein.moveTo(x0 + w * 0.2f, y0);
+            marbleVein.curveTo(x0 + w * 0.5f, y0 + h * 0.5f, x0 + w * 0.3f, y0 + h * 0.75f, x0 + w * 0.85f, y0 + h);
+            g2.draw(marbleVein);
+        } else if (theme == BoardTheme.JADE) {
+            // 翡翠玉石：柔和玉質流光
+            g2.setColor(new Color(255, 255, 255, 35));
+            g2.fillOval(x0 + (int)(w * 0.1), y0 + (int)(h * 0.1), (int)(w * 0.8), (int)(h * 0.4));
+        } else if (theme == BoardTheme.PARCHMENT) {
+            // 復古羊皮：邊緣輕微古舊光暈
+            g2.setColor(new Color(140, 100, 60, 20));
+            g2.setStroke(new BasicStroke(10.0f));
+            g2.draw(boardShape);
+        }
+
+        g2.setClip(clipOrig);
+
+        // 外框陰影與邊條
+        g2.setColor(theme.outerBorder);
+        g2.setStroke(new BasicStroke(3.8f));
+        g2.draw(boardShape);
+
+        // 內框精緻裝飾線
+        g2.setColor(theme.innerBorder);
+        g2.setStroke(new BasicStroke(1.5f));
         g2.draw(new RoundRectangle2D.Float(offsetX - 10, offsetY - 10, 8 * cellSize + 20, 9 * cellSize + 20, 8, 8));
     }
 
     private void drawBoardGrid(Graphics2D g2, int cellSize, int offsetX, int offsetY) {
-        Color lineColor = new Color(74, 42, 18);
-        g2.setColor(lineColor);
+        g2.setColor(theme.gridLine);
         g2.setStroke(new BasicStroke(1.8f));
 
         // 橫線 (10 條)
@@ -295,7 +350,7 @@ public class ChessBoardPanel extends JPanel {
 
         // 楚河 漢界 書法文字
         g2.setFont(riverFont);
-        g2.setColor(new Color(110, 65, 30));
+        g2.setColor(theme.riverText);
         FontMetrics fm = g2.getFontMetrics();
 
         String leftText = isFlipped ? "漢 界" : "楚 河";
@@ -313,8 +368,8 @@ public class ChessBoardPanel extends JPanel {
     }
 
     private void drawAllCornerMarks(Graphics2D g2, int cellSize, int offsetX, int offsetY) {
-        g2.setStroke(new BasicStroke(1.2f));
-        g2.setColor(new Color(74, 42, 18));
+        g2.setStroke(new BasicStroke(1.3f));
+        g2.setColor(theme.gridLine);
 
         // 炮位
         drawCornerMarkAt(g2, 1, 2, cellSize, offsetX, offsetY, true, true);
@@ -416,13 +471,11 @@ public class ChessBoardPanel extends JPanel {
         if (board == null) return;
 
         int pieceRadius = (int) (cellSize * 0.41);
-        int diameter = 2 * pieceRadius;
 
         // 調節字型大小匹配格子
-        int fontSize = Math.max(16, (int) (cellSize * 0.52));
+        int fontSize = Math.max(16, (int) (cellSize * 0.54));
         Font currentPieceFont = pieceFont.deriveFont(Font.BOLD, (float) fontSize);
         g2.setFont(currentPieceFont);
-        FontMetrics fm = g2.getFontMetrics();
 
         for (int x = 0; x < Board.COLS; x++) {
             for (int y = 0; y < Board.ROWS; y++) {
@@ -430,12 +483,12 @@ public class ChessBoardPanel extends JPanel {
                 if (piece == null) continue;
 
                 Point pt = toScreenPoint(x, y, cellSize, offsetX, offsetY);
-                drawSinglePiece(g2, piece, pt.x, pt.y, pieceRadius, fm);
+                drawSinglePiece(g2, piece, pt.x, pt.y, pieceRadius, currentPieceFont);
             }
         }
     }
 
-    private void drawSinglePiece(Graphics2D g2, Piece piece, int cx, int cy, int radius, FontMetrics fm) {
+    private void drawSinglePiece(Graphics2D g2, Piece piece, int cx, int cy, int radius, Font currentPieceFont) {
         int diameter = 2 * radius;
         int px = cx - radius;
         int py = cy - radius;
@@ -444,33 +497,39 @@ public class ChessBoardPanel extends JPanel {
         g2.setColor(new Color(0, 0, 0, 50));
         g2.fill(new Ellipse2D.Float(px + 2, py + 3, diameter, diameter));
 
-        // 2. 棋子木質球體立體漸層
+        // 2. 棋子象牙白木質球體立體漸層
         GradientPaint tokenGradient = new GradientPaint(
-            px + radius * 0.4f, py + radius * 0.4f, new Color(254, 247, 237),
-            px + diameter, py + diameter, new Color(225, 203, 172)
+            px + radius * 0.4f, py + radius * 0.4f, new Color(255, 250, 242),
+            px + diameter, py + diameter, new Color(228, 206, 175)
         );
         g2.setPaint(tokenGradient);
         g2.fill(new Ellipse2D.Float(px, py, diameter, diameter));
 
         // 3. 棋子邊緣環形線條
         boolean isRed = piece.isRed();
-        Color themeColor = isRed ? new Color(198, 30, 30) : new Color(25, 25, 25);
-        Color rimColor = isRed ? new Color(175, 45, 45, 170) : new Color(80, 80, 80, 170);
+        Color themeColor = isRed ? new Color(198, 24, 24) : new Color(22, 22, 22);
+        Color rimColor = isRed ? new Color(185, 45, 45, 180) : new Color(75, 75, 75, 180);
 
         g2.setColor(rimColor);
-        g2.setStroke(new BasicStroke(1.5f));
+        g2.setStroke(new BasicStroke(1.6f));
         g2.draw(new Ellipse2D.Float(px + 1, py + 1, diameter - 2, diameter - 2));
 
         // 內環細圈
         int innerGap = Math.max(3, radius / 7);
         g2.draw(new Ellipse2D.Float(px + innerGap, py + innerGap, diameter - 2 * innerGap, diameter - 2 * innerGap));
 
-        // 4. 書法棋子文字
+        // 4. 書法楷體棋子文字 —— 使用 GlyphVector 幾何視覺邊框達成「絕對水平與垂直致中」
         g2.setColor(themeColor);
         String text = piece.getCharacter();
-        int textX = cx - fm.stringWidth(text) / 2;
-        int textY = cy + (fm.getAscent() - fm.getDescent()) / 2;
-        g2.drawString(text, textX, textY);
+
+        FontRenderContext frc = g2.getFontRenderContext();
+        GlyphVector gv = currentPieceFont.createGlyphVector(frc, text);
+        Rectangle2D visualBounds = gv.getVisualBounds();
+
+        // 消除字型基準線 (baseline) 偏差，精確將墨跡中心對齊圓心 (cx, cy)
+        float textX = (float) (cx - visualBounds.getWidth() / 2.0 - visualBounds.getX());
+        float textY = (float) (cy - visualBounds.getHeight() / 2.0 - visualBounds.getY());
+        g2.drawGlyphVector(gv, textX, textY);
     }
 
     private void drawSelectionAndLegalMoves(Graphics2D g2, int cellSize, int offsetX, int offsetY) {
